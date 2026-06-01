@@ -1,10 +1,14 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_BMP280.h>
+#include <U8g2lib.h>
+
+// 屏幕初始化配置 - 使用软件I2C（兼容ESP01S引脚），设置为32像素高
+U8G2_SH1106_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ 2, /* data=*/ 0, /* reset=*/ U8X8_PIN_NONE);
 
 // I2C引脚定义
-#define SDA_PIN 8
-#define SCL_PIN 9
+#define SDA_PIN 0
+#define SCL_PIN 2
 
 // BMP280对象
 Adafruit_BMP280 bmp; // I2C模式
@@ -127,6 +131,14 @@ void setup() {
   Serial.begin(115200);
   delay(2000); // 增加等待时间确保串口连接
   
+  u8g2.begin();
+  u8g2.enableUTF8Print();
+    u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_wqy12_t_gb2312); 
+    u8g2.setCursor(0, 10);
+  u8g2.print("正在初始化传感器");
+   u8g2.sendBuffer();
+
   Serial.println("\n========== System Start ==========");
   Serial.println("Serial initialized!");
   
@@ -171,18 +183,22 @@ void setup() {
     Serial.println("AHT20 NOT FOUND! Please check wiring.");
     aht20_ready = false;
   }
-  
+
   Serial.println("========== Setup Complete ==========\n");
 }
 
 void loop() {
   Serial.println("===============");
   
+  // 读取传感器数据
+  float bmp_temp = 0.0, pressure = 0.0, altitude = 0.0;
+  float aht_temp = 0.0, humidity = 0.0;
+  
   // 读取BMP280数据
   if (bmp_ready) {
-    float bmp_temp = bmp.readTemperature();
-    float pressure = bmp.readPressure() / 100.0F; // 转换为hPa
-    float altitude = bmp.readAltitude(1013.25); // 海平面气压为1013.25 hPa
+    bmp_temp = bmp.readTemperature();
+    pressure = bmp.readPressure() / 100.0F; // 转换为hPa
+    altitude = bmp.readAltitude(1013.25); // 海平面气压为1013.25 hPa
     
     Serial.print(F("[BMP280] 温度: "));
     Serial.print(bmp_temp);
@@ -201,7 +217,6 @@ void loop() {
   
   // 读取AHT20数据
   if (aht20_ready) {
-    float aht_temp, humidity;
     if (AHT20_Read(aht_temp, humidity)) {
       Serial.print(F("[AHT20] 温度: "));
       Serial.print(aht_temp);
@@ -216,6 +231,32 @@ void loop() {
   } else {
     Serial.println("[AHT20] Not ready");
   }
-  
-  delay(5000); // 每5秒采集一次
+  // 在OLED屏幕上显示数据（5行）
+  u8g2.firstPage();
+  do {
+    u8g2.setFont(u8g2_font_wqy12_t_gb2312);
+    // 第2行：BMP280温度
+    char line2[20];
+    sprintf(line2, "[BMP280] %.1f C", bmp_ready ? bmp_temp : -999.0);
+    u8g2.drawStr(0, 15, line2);
+    
+    // 第3行：BMP280气压
+    char line3[20];
+    sprintf(line3, "[BMP280] %.1f hPa", bmp_ready ? pressure : 0.0);
+    u8g2.drawStr(0, 31, line3);
+    
+    // 第4行：AHT20湿度
+    char line4[20];
+    sprintf(line4, "[AHT20] %.1f C", aht20_ready ? aht_temp : 0.0);
+    u8g2.drawStr(0, 47, line4);
+    
+    // 第5行：BMP280海拔
+    char line5[20];
+    sprintf(line5, "[AHT20] %.1f %%", aht20_ready ? humidity : 0.0);
+    u8g2.drawStr(0, 63, line5);
+    
+  } while (u8g2.nextPage());
+   
+ 
+  delay(1000); // 每1秒采集一次
 }
