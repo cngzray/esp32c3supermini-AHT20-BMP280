@@ -1,3 +1,10 @@
+本分支的功能是透过BLE蓝牙方式，把传感器数据进行广播。
+
+支持多设备同时连接，接收BLE的广播数据。
+
+<img width="400"  alt="image" src="https://github.com/user-attachments/assets/3539068d-76b1-445f-8ef5-afc75b0ed76b" />
+
+
 默认接线
 
 // I2C引脚定义
